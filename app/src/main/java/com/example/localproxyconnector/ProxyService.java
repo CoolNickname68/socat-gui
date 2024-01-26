@@ -8,6 +8,8 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.IBinder;
 import android.app.PendingIntent;
+import android.util.Log;
+
 import androidx.core.app.NotificationCompat;
 
 public class ProxyService extends Service {
@@ -23,11 +25,25 @@ public class ProxyService extends Service {
     @SuppressLint("ForegroundServiceType")
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        createNotificationChannel();
-        startForeground(NOTIFICATION_ID, buildNotification());
-        // Здесь вызывайте методы для запуска серверов
+        try {
+            createNotificationChannel();
+            startForeground(NOTIFICATION_ID, buildNotification());
 
-        return START_STICKY;
+            // Обработка действия кнопки "Stop Service"
+            if (intent != null && "STOP_FOREGROUND".equals(intent.getAction())) {
+                stopForeground(true);
+                stopSelf();
+                System.exit(0); // Этот вызов завершит приложение
+                return START_NOT_STICKY;
+            }
+
+            // Здесь вызывайте методы для запуска серверов
+
+            return START_STICKY;
+        } catch (Exception e) {
+            Log.e("ProxyService", "Error in onStartCommand", e);
+            return START_NOT_STICKY;
+        }
     }
 
     private void createNotificationChannel() {
@@ -52,11 +68,29 @@ public class ProxyService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT
         );
 
+        // Создаем Intent для действия кнопки
+        Intent stopIntent = new Intent(this, ProxyService.class);
+        stopIntent.setAction("STOP_FOREGROUND");
+        PendingIntent stopPendingIntent = PendingIntent.getService(
+                this,
+                0,
+                stopIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE  // Добавляем FLAG_IMMUTABLE
+        );
+
+// Добавляем кнопку "Stop Service"
+        NotificationCompat.Action stopAction = new NotificationCompat.Action(
+                R.drawable.ic_stop_service,
+                "Stop Service",
+                stopPendingIntent
+        );
+
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Proxy Service")
                 .setContentText("Running in the background")
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
                 .setContentIntent(pendingIntent)
+                .addAction(stopAction)  // Добавляем кнопку
                 .build();
     }
 }
