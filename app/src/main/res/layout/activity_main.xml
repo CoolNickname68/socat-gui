@@ -1,0 +1,40 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <!-- Existing UI elements -->
+
+    <!-- LinearLayout for dynamic input -->
+    <LinearLayout
+        android:id="@+id/dynamicInputLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Add button to dynamically add input fields -->
+        <Button
+            android:id="@+id/addButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+" />
+    </LinearLayout>
+
+    <!-- LinearLayout for dynamic stop buttons -->
+    <LinearLayout
+        android:id="@+id/dynamicStopButtonLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/dynamicInputLayout"
+        android:orientation="vertical">
+    </LinearLayout>
+
+    <!-- Button to start the server -->
+    <Button
+        android:id="@+id/startButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/dynamicStopButtonLayout"
+        android:text="Start Server" />
+</RelativeLayout>
