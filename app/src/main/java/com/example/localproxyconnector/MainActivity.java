@@ -2,10 +2,13 @@ package com.example.localproxyconnector;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -16,13 +19,15 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
-import android.widget.RelativeLayout;
 
 public class MainActivity extends AppCompatActivity {
 
     private LinearLayout mainLayout;
+    private List<Button> dynamicStopButtons = new ArrayList<>();
+    private Button addButton;
+    private Button startButton;
     private List<FormStopButtonPair> formStopButtonPairs = new ArrayList<>();
-    private List<ProxyServerTask> proxyServerTasks = new ArrayList<>();
+    private Handler handler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,7 +40,9 @@ public class MainActivity extends AppCompatActivity {
         mainLayout.setOrientation(LinearLayout.VERTICAL);
         setContentView(mainLayout);
 
-        Button addButton = new Button(this);
+        handler = new Handler(Looper.getMainLooper());
+
+        addButton = new Button(this);
         addButton.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -50,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
 
         mainLayout.addView(addButton);
 
-        Button startButton = new Button(this);
+        startButton = new Button(this);
         startButton.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -69,10 +76,12 @@ public class MainActivity extends AppCompatActivity {
     private static class FormStopButtonPair {
         private LinearLayout formLayout;
         private Button stopButton;
+        private ProxyServerTask proxyServerTask;
 
-        public FormStopButtonPair(LinearLayout formLayout, Button stopButton) {
+        public FormStopButtonPair(LinearLayout formLayout, Button stopButton, ProxyServerTask proxyServerTask) {
             this.formLayout = formLayout;
             this.stopButton = stopButton;
+            this.proxyServerTask = proxyServerTask;
         }
 
         public LinearLayout getFormLayout() {
@@ -82,29 +91,30 @@ public class MainActivity extends AppCompatActivity {
         public Button getStopButton() {
             return stopButton;
         }
+
+        public ProxyServerTask getProxyServerTask() {
+            return proxyServerTask;
+        }
     }
 
     private void addDynamicInputFields() {
-        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(
-                RelativeLayout.LayoutParams.MATCH_PARENT,
-                RelativeLayout.LayoutParams.WRAP_CONTENT);
-
-        // Создаем новую форму
         LinearLayout dynamicFormLayout = new LinearLayout(this);
-        dynamicFormLayout.setLayoutParams(params);
+        dynamicFormLayout.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
         dynamicFormLayout.setOrientation(LinearLayout.VERTICAL);
 
         EditText remoteIpEditText = new EditText(this);
         remoteIpEditText.setHint("Enter Remote IP");
-        dynamicFormLayout.addView(remoteIpEditText, params);
+        dynamicFormLayout.addView(remoteIpEditText);
 
         EditText remotePortEditText = new EditText(this);
         remotePortEditText.setHint("Enter Remote Port");
-        dynamicFormLayout.addView(remotePortEditText, params);
+        dynamicFormLayout.addView(remotePortEditText);
 
         EditText localPortEditText = new EditText(this);
         localPortEditText.setHint("Enter Local Port");
-        dynamicFormLayout.addView(localPortEditText, params);
+        dynamicFormLayout.addView(localPortEditText);
 
         Button stopButton = new Button(this);
         stopButton.setLayoutParams(new LinearLayout.LayoutParams(
@@ -112,11 +122,9 @@ public class MainActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.WRAP_CONTENT));
         stopButton.setText("Stop Server");
 
-        mainLayout.addView(dynamicFormLayout);
-        mainLayout.addView(stopButton);
+        dynamicStopButtons.add(stopButton);
 
-        // Сохраняем связь между формой и кнопкой Stop Server
-        FormStopButtonPair pair = new FormStopButtonPair(dynamicFormLayout, stopButton);
+        FormStopButtonPair pair = new FormStopButtonPair(dynamicFormLayout, stopButton, null);
         formStopButtonPairs.add(pair);
 
         stopButton.setOnClickListener(new View.OnClickListener() {
@@ -125,32 +133,62 @@ public class MainActivity extends AppCompatActivity {
                 stopServer(pair);
             }
         });
+
+        mainLayout.addView(dynamicFormLayout);
+        mainLayout.addView(stopButton);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            dynamicFormLayout.post(new Runnable() {
+                @Override
+                public void run() {
+                    startDynamicServer(pair, localPortEditText.getText().toString(), remoteIpEditText.getText().toString(), remotePortEditText.getText().toString());
+                }
+            });
+        } else {
+            startDynamicServer(pair, localPortEditText.getText().toString(), remoteIpEditText.getText().toString(), remotePortEditText.getText().toString());
+        }
+    }
+
+    private void startDynamicServer(FormStopButtonPair pair, String localPort, String remoteIp, String remotePort) {
+        try {
+            int port = Integer.parseInt(localPort);
+            int remotePortInt = Integer.parseInt(remotePort);
+
+            if (isPortAvailable(port)) {
+                ProxyServerTask proxyServerTask = new ProxyServerTask(port, remoteIp, remotePortInt);
+                pair.proxyServerTask = proxyServerTask;
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                    proxyServerTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+                } else {
+                    proxyServerTask.execute();
+                }
+            } else {
+                showToast("Port is not available");
+            }
+        } catch (NumberFormatException e) {
+            showToast("Invalid port number");
+        }
     }
 
     private void startServers() {
         for (FormStopButtonPair pair : formStopButtonPairs) {
-            String remoteHost = ((EditText) pair.getFormLayout().getChildAt(0)).getText().toString();
-            int remotePort = Integer.parseInt(((EditText) pair.getFormLayout().getChildAt(1)).getText().toString());
-            int localPort = Integer.parseInt(((EditText) pair.getFormLayout().getChildAt(2)).getText().toString());
-
-            ProxyServerTask proxyServerTask = new ProxyServerTask(localPort, remoteHost, remotePort);
-            proxyServerTasks.add(proxyServerTask);
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                proxyServerTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-            } else {
-                proxyServerTask.execute();
-            }
+            startDynamicServer(pair, ((EditText) pair.getFormLayout().getChildAt(2)).getText().toString(),
+                    ((EditText) pair.getFormLayout().getChildAt(0)).getText().toString(),
+                    ((EditText) pair.getFormLayout().getChildAt(1)).getText().toString());
         }
     }
 
     private void stopServer(FormStopButtonPair pair) {
-        ProxyServerTask proxyServerTask = findProxyServerTask(pair);
+        ProxyServerTask proxyServerTask = pair.getProxyServerTask();
         if (proxyServerTask != null) {
             proxyServerTask.cancel(true);
 
             try {
-                proxyServerTask.getServerSocket().close();
+                ServerSocket serverSocket = proxyServerTask.getServerSocket();
+                if (serverSocket != null && !serverSocket.isClosed()) {
+                    serverSocket.close();
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -159,16 +197,7 @@ public class MainActivity extends AppCompatActivity {
             mainLayout.removeView(pair.getStopButton());
 
             formStopButtonPairs.remove(pair);
-            proxyServerTasks.remove(proxyServerTask);
         }
-    }
-
-    private ProxyServerTask findProxyServerTask(FormStopButtonPair pair) {
-        int index = formStopButtonPairs.indexOf(pair);
-        if (index != -1 && index < proxyServerTasks.size()) {
-            return proxyServerTasks.get(index);
-        }
-        return null;
     }
 
     private static class ProxyServerTask extends AsyncTask<Void, Void, Void> {
@@ -228,5 +257,21 @@ public class MainActivity extends AppCompatActivity {
             return serverSocket;
         }
     }
-}
 
+    private boolean isPortAvailable(int port) {
+        try (ServerSocket ignored = new ServerSocket(port)) {
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private void showToast(final String message) {
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+}
