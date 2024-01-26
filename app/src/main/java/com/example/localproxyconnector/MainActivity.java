@@ -1,4 +1,5 @@
 package com.example.localproxyconnector;
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -71,6 +72,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         mainLayout.addView(startButton);
+        // Запуск службы
+        startService(new Intent(this, ProxyService.class));
     }
 
     private static class FormStopButtonPair {

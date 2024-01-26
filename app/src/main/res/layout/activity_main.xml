@@ -7,6 +7,32 @@
     <!-- Existing UI elements -->
 
     <!-- LinearLayout for dynamic input -->
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:id="@+id/mainLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="16dp"
+        tools:context=".MainActivity">
+
+        <Button
+            android:id="@+id/addButtonMain"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+"
+            android:layout_gravity="center"/>
+
+        <Button
+            android:id="@+id/startButtonMain"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Start Servers"
+            android:layout_gravity="center"
+            android:layout_marginTop="16dp"/>
+
+    </LinearLayout>
+    <!--  -->
     <LinearLayout
         android:id="@+id/dynamicInputLayout"
         android:layout_width="match_parent"
@@ -15,7 +41,7 @@
 
         <!-- Add button to dynamically add input fields -->
         <Button
-            android:id="@+id/addButton"
+            android:id="@+id/addButtonDynamic"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="+" />
@@ -32,7 +58,7 @@
 
     <!-- Button to start the server -->
     <Button
-        android:id="@+id/startButton"
+        android:id="@+id/startButtonDynamic"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/dynamicStopButtonLayout"
